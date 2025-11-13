@@ -14,7 +14,9 @@ The frontend provides a single shell UI with a navigation drawer; each module is
 - `backend/` — FastAPI service, LLM clients, RAG pipelines, and ChEMBL Agent orchestration.
 - `frontend/` — Vue 3 app with Vuetify and Monaco, multi‑module router/shell.
 - `docker-compose.yml` — Local orchestration.
+- `LOGGING.md` — Comprehensive logging documentation.
 - Backend logs under `/var/log/genai-portfolio` (daily‑rotated, UTC).
+- Frontend logs in browser console with structured categorization.
 
 ## Prerequisites
 
@@ -38,6 +40,8 @@ Logs:
 
 - Backend writes logs to `/var/log/genai-portfolio` (same path inside container and host).
 - Files rotate daily at UTC midnight; two weeks retained. Timestamps are UTC.
+- Frontend logs appear in browser console with color-coded severity levels.
+- See `LOGGING.md` for detailed logging documentation.
 
 ## Frontend (Vue 3 + Vite + Vuetify)
 

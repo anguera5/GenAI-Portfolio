@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend Logging Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #0f1115;
+            color: #e2e8f0;
+        }
+        h1 {
+            color: #9a5fff;
+            border-bottom: 2px solid #9a5fff;
+            padding-bottom: 10px;
+        }
+        .section {
+            background: #111318;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        h2 {
+            color: #38d6ee;
+            margin-top: 0;
+        }
+        button {
+            background: #9a5fff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #8a4fe0;
+        }
+        .info {
+            background: #1a2332;
+            border-left: 4px solid #38d6ee;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        code {
+            background: #1a1a1a;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            color: #38d6ee;
+        }
+        .log-output {
+            background: #000;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Frontend Logging Test Page</h1>
+    
+    <div class="info">
+        <strong>📌 Instructions:</strong> Open your browser's Developer Tools (F12) and navigate to the Console tab 
+        to see the structured logs. Click the buttons below to trigger different logging events.
+    </div>
+
+    <div class="section">
+        <h2>1. User Action Logging</h2>
+        <p>These buttons simulate user interactions that are logged:</p>
+        <button onclick="testUserAction('Button Click', { buttonId: 'test-button-1' })">
+            Test Button Click
+        </button>
+        <button onclick="testUserAction('Form Submit', { formId: 'test-form', fields: 3 })">
+            Test Form Submit
+        </button>
+        <button onclick="testUserAction('Download File', { fileName: 'test.txt', size: 1024 })">
+            Test Download
+        </button>
+    </div>
+
+    <div class="section">
+        <h2>2. API Request Logging</h2>
+        <p>Simulate API calls (these will fail without backend running):</p>
+        <button onclick="testApiCall('/api/', 'GET')">Test GET Request</button>
+        <button onclick="testApiCall('/api/generate', 'POST')">Test POST Request</button>
+    </div>
+
+    <div class="section">
+        <h2>3. Navigation Logging</h2>
+        <p>Simulate navigation events:</p>
+        <button onclick="testNavigation('/home', '/code-generator')">
+            Navigate to Code Generator
+        </button>
+        <button onclick="testNavigation('/code-generator', '/chembl-agent')">
+            Navigate to ChEMBL Agent
+        </button>
+    </div>
+
+    <div class="section">
+        <h2>4. Error Logging</h2>
+        <p>Trigger errors to see error logging:</p>
+        <button onclick="testError('Test Error', 'This is a simulated error')">
+            Test Error Logging
+        </button>
+        <button onclick="testUnhandledError()">Test Unhandled Error</button>
+    </div>
+
+    <div class="section">
+        <h2>5. Log Management</h2>
+        <p>Manage the log buffer:</p>
+        <button onclick="viewLogs()">View All Logs</button>
+        <button onclick="exportLogs()">Export Logs (JSON)</button>
+        <button onclick="clearLogs()">Clear Logs</button>
+        <div id="log-output" class="log-output" style="display: none;"></div>
+    </div>
+
+    <div class="section">
+        <h2>📊 What to Look For in Console</h2>
+        <ul>
+            <li><strong>Color-coded logs:</strong> Blue (INFO), Orange (WARN), Red (ERROR)</li>
+            <li><strong>Structured data:</strong> Timestamp, level, category, message</li>
+            <li><strong>User actions:</strong> Prefixed with <code>[USER_ACTION]</code></li>
+            <li><strong>API calls:</strong> Prefixed with <code>[API_REQUEST]</code> and <code>[API_RESPONSE]</code></li>
+            <li><strong>Navigation:</strong> Prefixed with <code>[NAVIGATION]</code></li>
+            <li><strong>Errors:</strong> Full stack traces included</li>
+        </ul>
+    </div>
+
+    <script type="module">
+        // Import logger (simulated - in real app this would be from the build)
+        // For this test, we'll create a minimal logger implementation
+        
+        class TestLogger {
+            constructor() {
+                this.logs = [];
+            }
+
+            log(level, category, message, data) {
+                const entry = {
+                    timestamp: new Date().toISOString(),
+                    level,
+                    category,
+                    message,
+                    data
+                };
+                this.logs.push(entry);
+                
+                const style = this.getStyle(level);
+                const prefix = `[${entry.timestamp}] [${level}] [${category}]`;
+                
+                switch(level) {
+                    case 'INFO':
+                        console.info(`%c${prefix}`, style, message, data || '');
+                        break;
+                    case 'WARN':
+                        console.warn(`%c${prefix}`, style, message, data || '');
+                        break;
+                    case 'ERROR':
+                        console.error(`%c${prefix}`, style, message, data || '');
+                        break;
+                }
+            }
+
+            getStyle(level) {
+                const styles = {
+                    'INFO': 'color: #2196F3; font-weight: bold',
+                    'WARN': 'color: #FF9800; font-weight: bold',
+                    'ERROR': 'color: #F44336; font-weight: bold'
+                };
+                return styles[level] || '';
+            }
+
+            userAction(action, details) {
+                this.log('INFO', 'USER_ACTION', action, details);
+            }
+
+            apiRequest(method, url, data) {
+                this.log('INFO', 'API_REQUEST', `${method} ${url}`, data);
+            }
+
+            apiResponse(method, url, status, duration) {
+                this.log('INFO', 'API_RESPONSE', `${method} ${url} - ${status} (${duration}ms)`);
+            }
+
+            navigation(from, to) {
+                this.log('INFO', 'NAVIGATION', `${from} → ${to}`);
+            }
+
+            error(category, message, error, data) {
+                this.log('ERROR', category, message, { error: error?.message, data });
+                if (error?.stack) {
+                    console.error('Stack trace:', error.stack);
+                }
+            }
+
+            getLogs() {
+                return [...this.logs];
+            }
+
+            clearLogs() {
+                this.logs = [];
+                console.clear();
+            }
+
+            exportLogs() {
+                return JSON.stringify(this.logs, null, 2);
+            }
+        }
+
+        const logger = new TestLogger();
+        window.logger = logger;
+
+        // Initial log
+        logger.log('INFO', 'APP', 'Test page loaded', { timestamp: new Date().toISOString() });
+
+        // Make functions available globally
+        window.testUserAction = (action, details) => {
+            logger.userAction(action, details);
+        };
+
+        window.testApiCall = async (url, method) => {
+            logger.apiRequest(method, url, method === 'POST' ? { test: 'data' } : undefined);
+            const startTime = Date.now();
+            
+            try {
+                const response = await fetch(url, {
+                    method,
+                    headers: method === 'POST' ? { 'Content-Type': 'application/json' } : {}
+                });
+                const duration = Date.now() - startTime;
+                logger.apiResponse(method, url, response.status, duration);
+            } catch (error) {
+                const duration = Date.now() - startTime;
+                logger.error('API_ERROR', `${method} ${url} - Failed`, error, { duration });
+            }
+        };
+
+        window.testNavigation = (from, to) => {
+            logger.navigation(from, to);
+        };
+
+        window.testError = (title, message) => {
+            const error = new Error(message);
+            logger.error('TEST', title, error);
+        };
+
+        window.testUnhandledError = () => {
+            // This will be caught by global error handler
+            throw new Error('This is an unhandled error for testing');
+        };
+
+        window.viewLogs = () => {
+            const output = document.getElementById('log-output');
+            const logs = logger.getLogs();
+            output.style.display = 'block';
+            output.textContent = JSON.stringify(logs, null, 2);
+        };
+
+        window.exportLogs = () => {
+            const json = logger.exportLogs();
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'frontend-logs.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            logger.log('INFO', 'APP', 'Logs exported');
+        };
+
+        window.clearLogs = () => {
+            logger.clearLogs();
+            const output = document.getElementById('log-output');
+            output.style.display = 'none';
+            output.textContent = '';
+            logger.log('INFO', 'APP', 'Logs cleared');
+        };
+
+        // Global error handlers
+        window.addEventListener('error', (event) => {
+            logger.error('GLOBAL', 'Uncaught error', event.error, {
+                message: event.message,
+                filename: event.filename,
+                lineno: event.lineno
+            });
+        });
+
+        window.addEventListener('unhandledrejection', (event) => {
+            logger.error('GLOBAL', 'Unhandled promise rejection', event.reason);
+        });
+    </script>
+</body>
+</html>

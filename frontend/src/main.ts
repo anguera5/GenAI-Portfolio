@@ -8,6 +8,7 @@ import * as directives from 'vuetify/directives'
 import './styles.css'
 import { router } from './router'
 import GlobalNotifierPlugin from './plugins/global-notifier'
+import { logger } from './lib/logger'
 
 
 const vuetify = createVuetify({
@@ -37,4 +38,28 @@ const vuetify = createVuetify({
 })
 
 const pinia = createPinia()
+
+// Log application startup
+logger.info('APP', 'Application starting', {
+	environment: import.meta.env.MODE,
+	timestamp: new Date().toISOString()
+})
+
+// Global error handler
+window.addEventListener('error', (event) => {
+	logger.error('GLOBAL', 'Uncaught error', event.error, {
+		message: event.message,
+		filename: event.filename,
+		lineno: event.lineno,
+		colno: event.colno
+	})
+})
+
+// Global unhandled promise rejection handler
+window.addEventListener('unhandledrejection', (event) => {
+	logger.error('GLOBAL', 'Unhandled promise rejection', event.reason)
+})
+
 createApp(App).use(router).use(pinia).use(vuetify).use(GlobalNotifierPlugin).mount('#app')
+
+logger.info('APP', 'Application mounted successfully')
