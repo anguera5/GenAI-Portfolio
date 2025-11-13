@@ -1,12 +1,15 @@
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import logging
 import os
 import time
+import json
 from logging.handlers import TimedRotatingFileHandler
 from datetime import datetime, timezone
+from starlette.middleware.base import BaseHTTPMiddleware
+from typing import Callable
 load_dotenv()
 
 from .core.config import get_settings
@@ -52,6 +55,64 @@ if not any(isinstance(h, TimedRotatingFileHandler) for h in logger.handlers):
 
 logger.info("Starting FastAPI app at %s", datetime.now(timezone.utc).isoformat())
 app = FastAPI(title=settings.app_name)
+
+
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    """Middleware to log all incoming requests and outgoing responses."""
+    
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        request_id = f"{int(time.time() * 1000)}-{id(request)}"
+        start_time = time.time()
+        
+        # Log incoming request
+        logger.info(
+            "[REQUEST] id=%s method=%s path=%s client=%s",
+            request_id,
+            request.method,
+            request.url.path,
+            request.client.host if request.client else "unknown"
+        )
+        
+        # Log query parameters if present
+        if request.url.query:
+            logger.info("[REQUEST] id=%s query_params=%s", request_id, request.url.query)
+        
+        try:
+            # Process the request
+            response = await call_next(request)
+            
+            # Calculate duration
+            duration = time.time() - start_time
+            
+            # Log successful response
+            logger.info(
+                "[RESPONSE] id=%s status=%s duration=%.3fs",
+                request_id,
+                response.status_code,
+                duration
+            )
+            
+            return response
+            
+        except Exception as exc:
+            # Calculate duration
+            duration = time.time() - start_time
+            
+            # Log error
+            logger.error(
+                "[ERROR] id=%s method=%s path=%s duration=%.3fs error=%s",
+                request_id,
+                request.method,
+                request.url.path,
+                duration,
+                str(exc),
+                exc_info=True
+            )
+            raise
+
+
+# Add logging middleware first (executes last in the middleware chain)
+app.add_middleware(RequestLoggingMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

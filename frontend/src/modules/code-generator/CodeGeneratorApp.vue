@@ -163,6 +163,7 @@ import http from '../../lib/http'
 import { useNotifyStore } from '../../stores/notify'
 import { useApiKeyStore } from '../../stores/apiKey'
 import PageTitle from '../../components/PageTitle.vue'
+import { logger } from '../../lib/logger'
 
 const prompt = ref('')
 const codeText = ref('')
@@ -235,31 +236,38 @@ watch(activeTab, (tab) => {
 })
 
 async function generate() {
+  logger.userAction('Generate Code Button Clicked', { language: language.value, promptLength: prompt.value.length })
   loading.value = true
   try {
   const res = await http.post('/api/generate', { prompt: prompt.value, language: language.value , api_key: apiKeyStore.apiKey})
     if (res.data.code === 'Please introduce code-related prompt') {
+      logger.warn('CODE_GENERATOR', 'Non-code related prompt detected')
       notify.warning('The inputted query was not code related according to our model.')
       return
     }
     codeText.value = res.data.code
     activeTab.value = 'code'
     outputLanguage = language.value
+    logger.info('CODE_GENERATOR', 'Code generated successfully', { language: language.value, codeLength: codeText.value.length })
   } catch (e: any) {
   // Error popup handled by interceptor; optionally use message locally
   const errorMsg = e?.response?.data?.detail || 'Generation failed'
+  logger.error('CODE_GENERATOR', 'Code generation failed', e, { errorMsg })
   } finally {
     loading.value = false
   }
 }
 
 async function genTests() {
+  logger.userAction('Generate Tests Button Clicked', { codeLength: codeText.value.length })
   loadingTests.value = true
   try {
   const res = await http.post('/api/tests', { code: codeText.value })
     testsText.value = res.data.code
     activeTab.value = 'tests'
+    logger.info('CODE_GENERATOR', 'Tests generated successfully', { testsLength: testsText.value.length })
   } catch (e) {
+    logger.error('CODE_GENERATOR', 'Test generation failed', e)
     console.error(e)
   } finally {
     loadingTests.value = false
@@ -267,12 +275,15 @@ async function genTests() {
 }
 
 async function genDocs() {
+  logger.userAction('Generate Docs Button Clicked', { codeLength: codeText.value.length })
   loadingDocs.value = true
   try {
   const res = await http.post('/api/docs', { code: codeText.value })
     codeText.value = res.data.code
     activeTab.value = 'code'
+    logger.info('CODE_GENERATOR', 'Documentation generated successfully', { codeLength: codeText.value.length })
   } catch (e) {
+    logger.error('CODE_GENERATOR', 'Documentation generation failed', e)
     console.error(e)
   } finally {
     loadingDocs.value = false
@@ -283,11 +294,13 @@ const currentText = computed(() => (activeTab.value === 'code' ? codeText.value 
 
 async function copyCurrent() {
   if (!currentText.value) return
+  logger.userAction('Copy Code/Tests', { tab: activeTab.value, length: currentText.value.length })
   await navigator.clipboard.writeText(currentText.value)
 }
 
 function downloadCurrent() {
   if (!currentText.value) return
+  logger.userAction('Download Code/Tests', { tab: activeTab.value, length: currentText.value.length })
   const blob = new Blob([currentText.value], { type: 'text/plain;charset=utf-8' })
   const a = document.createElement('a')
   const baseExt = languageMap[outputLanguage]
