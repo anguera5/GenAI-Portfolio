@@ -8,7 +8,7 @@
                   <h1 class="headline">ChEMBL Agent <span class="shimmer" /></h1>
                   <p class="op-80 mt-1">
                     Plan SQL queries against the local ChEMBL snapshot using natural language. We embed context with
-                    <strong>text-embedding-3-large</strong> and generate SQL with <strong>gpt-4.1-mini</strong>.
+                    <strong>text-embedding-3-large</strong> and generate SQL with <strong>gpt-5-mini</strong>.
                   </p>
                   <!-- Flow diagram moved into title block -->
                   <div class="flow-strip mt-4" ref="flowEl">

@@ -8,7 +8,7 @@
             <h1 class="headline">Unofficial Food Packaging Forum Chatbot <span class="shimmer" /></h1>
             <p class="op-80 mt-1">
               Ask questions about food packaging safety. Replies are grounded on FPF content using
-              <strong>text-embedding-3-large</strong> and generated with <strong>gpt-4.1-mini</strong>.
+              <strong>text-embedding-3-large</strong> and generated with <strong>gpt-5-mini</strong>.
             </p>
             <!-- Flow strip to show the pipeline -->
             <div class="flow-strip mt-3">

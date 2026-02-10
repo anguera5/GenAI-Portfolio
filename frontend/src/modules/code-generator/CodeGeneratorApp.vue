@@ -8,7 +8,7 @@
             <h1 class="headline">Code Generation <span class="shimmer" /></h1>
             <p class="op-80 mt-1">
               Describe what you need and let the model craft clean, documented code. We call OpenAI’s
-              <strong>gpt-4.1-mini</strong> for code and use <strong>text-embedding-3-large</strong> for RAG in other modules.
+              <strong>gpt-5-mini</strong> for code and use <strong>text-embedding-3-large</strong> for RAG in other modules.
             </p>
             <!-- Flow strip below the title for quick mental model -->
             <div class="flow-strip mt-3">
@@ -68,7 +68,7 @@
             <ul class="mini-list op-80">
               <li><span class="num-badge">1</span> You provide a prompt and pick a language.</li>
               <li><span class="num-badge">2</span> The app sends your request to the backend with your API key.</li>
-              <li><span class="num-badge">3</span> Backend queries <strong>gpt-4.1-mini</strong> and returns code.</li>
+              <li><span class="num-badge">3</span> Backend queries <strong>gpt-5-mini</strong> and returns code.</li>
               <li><span class="num-badge">4</span> Optionally add docs/tests and copy or download.</li>
             </ul>
           </v-card-item>

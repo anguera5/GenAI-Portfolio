@@ -51,7 +51,7 @@ class LLMModel:
                     model=self.model,
                     temperature=self.temperature,
                     openai_api_key=incoming_key,
-                    timeout=15,  # shorter timeout for key validation
+                    reasoning_effort="low",
                 )
                 try:
                     # Tiny no-op call to validate the key; minimal cost

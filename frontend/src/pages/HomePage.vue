@@ -39,7 +39,7 @@
             />
             <div class="tiny-note">
               Your key is used exclusively to call OpenAI: responses with
-              <code>gpt-4.1-mini</code> and embeddings with <code>text-embedding-3-large</code> for RAG.
+              <code>gpt-5-mini</code> and embeddings with <code>text-embedding-3-large</code> for RAG.
             </div>
           </div>
         </v-expand-transition>
@@ -75,7 +75,7 @@
                   Provider: <strong>OpenAI</strong>
                 </div>
                 <div class="d-flex ga-2 mt-2 flex-wrap">
-                  <v-chip color="primary" variant="tonal" size="small">Model: gpt-4.1-mini</v-chip>
+                  <v-chip color="primary" variant="tonal" size="small">Model: gpt-5-mini</v-chip>
                   <v-chip color="secondary" variant="tonal" size="small">Embeddings: text-embedding-3-large</v-chip>
                 </div>
                 <v-divider class="my-3" />
