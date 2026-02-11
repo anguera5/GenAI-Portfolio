@@ -51,7 +51,7 @@ class LLMModel:
                     model=self.model,
                     temperature=self.temperature,
                     openai_api_key=incoming_key,
-                    reasoning_effort="low",
+                    reasoning_effort="minimal",
                 )
                 try:
                     # Tiny no-op call to validate the key; minimal cost

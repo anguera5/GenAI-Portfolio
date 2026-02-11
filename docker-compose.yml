@@ -11,7 +11,7 @@ services:
       - ./backend/.env
     environment:
       # Point backend to the mounted DB inside the container
-      - CHEMBL_SQLITE_PATH=/app/app/chembl/chembl_35.db
+      - CHEMBL_SQLITE_PATH=/app/app/chembl/chembl_36.db
       # OPENAI_API_KEY loads from backend/.env
     ports:
       - "8000:8000"

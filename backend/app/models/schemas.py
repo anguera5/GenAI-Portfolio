@@ -60,7 +60,7 @@ class ChemblSqlPlanResponse(BaseModel):
 
 class ChemblSqlExecuteRequest(BaseModel):
     sql: str = Field(..., min_length=1)
-    limit: int | None = Field(default=100, ge=1, le=10000)
+    limit: int | None = Field(default=100, ge=1)
 
 
 class ChemblSqlExecuteResponse(BaseModel):
@@ -90,7 +90,7 @@ class ChemblSqlEditResponse(BaseModel):
 
 class ChemblSqlReexecuteRequest(BaseModel):
     memory_id: str = Field(..., min_length=1)
-    limit: int = Field(default=100, ge=1, le=10000)
+    limit: int = Field(default=100, ge=1)
     api_key: str
 
 class ChemblSqlReexecuteResponse(BaseModel):

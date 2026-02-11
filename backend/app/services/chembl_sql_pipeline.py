@@ -12,7 +12,7 @@ from langgraph.graph import StateGraph, END
 import logging
 
 
-DB_PATH = os.getenv("CHEMBL_SQLITE_PATH", "app/chembl/chembl_35.db")
+DB_PATH = os.getenv("CHEMBL_SQLITE_PATH", "app/chembl/chembl_36.db")
 READ_ONLY_URI = f"file:{DB_PATH}?mode=ro"
 
 FORBIDDEN_TOKENS = (
@@ -200,7 +200,7 @@ class ChemblSqlPipeline:
                     "- Use exact column names and proper JOINs on keys (PK/FK).\n"
                     "- Filter early with WHERE; aggregate only when needed.\n"
                     "- Return concise columns; avoid SELECT *.\n"
-                    "- Respect SQLite syntax; add LIMIT for preview."
+                    "- Respect SQLite syntax."
                 )
             self._log_step("PROCESS.done", took_ms=int((time.perf_counter() - t0) * 1000), preview=self._preview(guidelines, 160))
             return {"optimized_guidelines": guidelines}
@@ -460,8 +460,21 @@ class ChemblSqlPipeline:
     # ----------------- Steps (logic) -----------------
     def _plan_query(self, prompt: str) -> str:
         system = (
-            "You are a SQL expert planner for the ChEMBL database.\n"
-            "Analyze the user's request and expand it considering caveats, relationships, and edge cases."
+            "You are a SQL expert planner for the ChEMBL database.\n\n"
+            "=== PLANNING PROCESS ===\n\n"
+            "STEP 1: EXTRACT KEY REQUIREMENTS\n"
+            "- What specific data is the user asking for?\n"
+            "- What entities are involved (molecules, targets, assays, activities)?\n"
+            "- What conditions or filters are specified?\n\n"
+            "STEP 2: IDENTIFY DATA NEEDS\n"
+            "- Which ChEMBL tables likely contain this data?\n"
+            "- What relationships between tables are needed?\n"
+            "- What key columns are essential?\n\n"
+            "STEP 3: CONSIDER EDGE CASES\n"
+            "- Are there NULL values to handle?\n"
+            "- Are there multiple records per entity that need aggregation?\n"
+            "- Are there specific data quality concerns?\n\n"
+            "OUTPUT: Provide a clear, detailed analysis in 2-4 sentences covering these aspects."
         )
         msg = [("system", system), ("user", prompt)]
         self._log_step("PLAN.start", prompt_len=len(prompt))
@@ -508,10 +521,34 @@ class ChemblSqlPipeline:
             "Write a single valid and optimized SQLite SQL query that best answers the question using these tables."
         )
         system = (
-            "You are a helpful assistant that implements robust and optimized SQLite SQL queries for the ChEMBL database.\n"
-            "Rules:\n- Only output SQL, no prose.\n- Use exact table/column names.\n"
-            "- If retrieved tables are '(none)', respond 'Sorry, I am unable to answer this.'.\n"
-            "- IMPORTANT: Base your answer solely on the related tables provided."
+            "You are a helpful assistant that implements robust and optimized SQLite SQL queries for the ChEMBL database.\n\n"
+            "=== PROCESS - FOLLOW THESE STEPS IN ORDER ===\n\n"
+            "STEP 1: UNDERSTAND THE QUESTION\n"
+            "- Read the user question carefully\n"
+            "- Identify what data is being requested\n"
+            "- Note any filters, aggregations, or specific conditions\n\n"
+            "STEP 2: ANALYZE THE SCHEMA\n"
+            "- Review the related tables provided\n"
+            "- Identify which tables contain the needed data\n"
+            "- Map out the join relationships (PK/FK connections)\n"
+            "- Verify exact column names in each table\n\n"
+            "STEP 3: CONSTRUCT THE QUERY\n"
+            "- Write SELECT with specific columns (avoid SELECT *)\n"
+            "- Add FROM clause with primary table\n"
+            "- Add JOIN clauses with explicit ON conditions\n"
+            "- Add WHERE clause for filters\n"
+            "- Add GROUP BY and aggregate functions if needed\n"
+            "- Do not include LIMIT clauses\n"
+            "- Verify all columns and tables match the schema exactly\n\n"
+            "=== OUTPUT REQUIREMENTS ===\n"
+            "- Output ONLY the final SQL query - no explanations, no markdown, no steps shown\n"
+            "- If related tables are '(none)', output exactly: Sorry, I am unable to answer this.\n"
+            "- Use ONLY table and column names from the related tables provided\n\n"
+            "=== EXAMPLE ===\n"
+            "SELECT m.chembl_id, m.pref_name, a.standard_value\n"
+            "FROM molecule_dictionary m\n"
+            "JOIN activities a ON m.molregno = a.molregno\n"
+            "WHERE a.standard_type = 'IC50"
         )
         if edit_mode:
             system += (
@@ -542,8 +579,27 @@ class ChemblSqlPipeline:
         """Generate concise, actionable SQL optimization guidelines based on retrieved schema snippets."""
         tables_summary = "\n\n".join(related_texts[:5])  # cap prompt size
         system = (
-            "You are a senior data engineer. Draft precise guidelines to produce a high-quality, efficient SQLite query for the ChEMBL-like schema described.\n"
-            "Rules: concise bullet points (4-8), concrete advice on joins, filters, aggregation, projections, and indices/keys; no SQL code."
+            "You are a senior data engineer. Draft precise guidelines to produce a high-quality, efficient SQLite query for the ChEMBL-like schema described.\n\n"
+            "=== GUIDELINE GENERATION PROCESS ===\n\n"
+            "STEP 1: SCHEMA ANALYSIS\n"
+            "- Identify the tables mentioned in the schema excerpts\n"
+            "- Note the primary keys (PK) and foreign keys (FK)\n"
+            "- Understand how tables relate to each other\n\n"
+            "STEP 2: QUERY STRATEGY\n"
+            "- Determine which tables to join based on the user question\n"
+            "- Identify specific join keys (e.g., molregno, assay_id)\n"
+            "- Determine what filters to apply early (push-down optimization)\n\n"
+            "STEP 3: OPTIMIZATION ADVICE\n"
+            "- Suggest minimal column selection (avoid SELECT *)\n"
+            "- Recommend proper filtering order\n"
+            "- Note any aggregation or grouping needs\n\n"
+            "=== OUTPUT FORMAT ===\n"
+            "Provide exactly 4-8 concise bullet points with concrete advice.\n"
+            "NO SQL code - only strategic guidance.\n\n"
+            "Example guideline:\n"
+            "- Join molecule_dictionary to activities on molregno (PK/FK)\n"
+            "- Filter activities WHERE standard_type = 'IC50' early\n"
+            "- Select only: chembl_id, pref_name, standard_value"
         )
         user = (
             "User question:\n" + (prompt or "").strip() + "\n\n" +
@@ -576,9 +632,16 @@ class ChemblSqlPipeline:
             "Queries typically involve discovering relationships between compounds, targets, assays, activities, mechanisms, and properties (e.g., molecular weight)."
         )
         system = (
-            "You are a strict classifier that determines whether a user question is about the ChEMBL bioactivity database domain.\n"
-            "Respond ONLY with a compact JSON object of the form {\"is_chembl\": true|false, \"confidence\": number, \"reason\": string}.\n"
-            "Consider if the question is about drug-like small molecules, targets, assays, bioactivity metrics, mechanisms of action, indications, or the schema itself."
+            "You are a strict classifier that determines whether a user question is about the ChEMBL bioactivity database domain.\n\n"
+            "OUTPUT FORMAT - Respond with EXACTLY this JSON structure (no additional text):\n"
+            "{\"is_chembl\": true, \"confidence\": 0.95, \"reason\": \"Question asks about...\"}\n\n"
+            "Classification criteria:\n"
+            "- Drug-like small molecules, compounds, chemical structures\n"
+            "- Biological targets, proteins, UniProt IDs\n"
+            "- Assays, bioactivity measurements (IC50, EC50, Ki, potency)\n"
+            "- Mechanisms of action, drug indications\n"
+            "- ChEMBL database schema or tables\n\n"
+            "Set is_chembl=true if ANY of these apply, false otherwise."
         )
         user = (
             "ChEMBL description:\n" + description + "\n\n" +
@@ -621,8 +684,29 @@ class ChemblSqlPipeline:
         """Ask the model to fix the previous SQL using the SQLite error as feedback."""
         context = "\n\n".join(f"- {t}" for t in related_tables) if related_tables else "(none)"
         system = (
-            "You are a SQLite expert that fixes invalid queries for the ChEMBL database.\n"
-            "Rules:\n- Only output SQL, no prose.\n- Keep to the provided tables/columns.\n- Prefer minimal changes that address the error."
+            "You are a SQLite expert that fixes invalid queries for the ChEMBL database.\n\n"
+            "=== REPAIR PROCESS - FOLLOW IN ORDER ===\n\n"
+            "STEP 1: ANALYZE THE ERROR\n"
+            "- Read the SQLite error message carefully\n"
+            "- Identify the specific issue (column not found, table not found, syntax error, etc.)\n"
+            "- Locate where in the SQL the error occurs\n\n"
+            "STEP 2: CHECK THE SCHEMA\n"
+            "- Review the related tables provided\n"
+            "- Verify the correct table names\n"
+            "- Verify the correct column names in each table\n"
+            "- Check join relationships and keys\n\n"
+            "STEP 3: FIX THE QUERY\n"
+            "- Make MINIMAL changes - fix only what caused the error\n"
+            "- Use exact table and column names from the schema\n"
+            "- Ensure proper JOIN syntax with explicit ON clauses\n"
+            "- Verify all referenced columns exist in their tables\n\n"
+            "=== COMMON ERROR PATTERNS ===\n"
+            "- 'no such column': Check exact column name spelling in schema\n"
+            "- 'no such table': Use exact table name from related tables\n"
+            "- 'syntax error': Check JOIN ON syntax, missing commas, quote matching\n"
+            "- 'ambiguous column': Add table aliases (e.g., m.chembl_id)\n\n"
+            "=== OUTPUT ===\n"
+            "Output ONLY the corrected SQL query - no explanations, no markdown."
         )
         user = (
             "User question (for context):\n" + original_prompt + "\n\n"

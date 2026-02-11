@@ -83,7 +83,7 @@ Important endpoints (subset):
 
 ChEMBL data:
 
-- SQLite file under `backend/app/chembl/chembl_35.db` (read‑only URI).
+- SQLite file under `backend/app/chembl/chembl_36.db` (read‑only URI).
 - Chroma store under `backend/app/chroma_db/` for schema retrieval.
 
 Safety & execution:
@@ -149,7 +149,7 @@ Backend:
 - `OPENAI_API_KEY` — required.
 - `OPENAI_MODEL` — chat model id.
 - `OPENAI_EMBEDDING_MODEL` — embedding model id.
-- `CHEMBL_SQLITE_PATH` — path to ChEMBL SQLite file (default `app/chembl/chembl_35.db`).
+- `CHEMBL_SQLITE_PATH` — path to ChEMBL SQLite file (default `app/chembl/chembl_36.db`).
 - `CHEMBL_PIPELINE_TIMEOUT_S` — soft cap for end‑to‑end pipeline (0 disables; recommended when using large DB).
 
 Frontend:
