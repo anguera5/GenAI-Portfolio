@@ -470,10 +470,6 @@ class ChemblSqlPipeline:
             "- Which ChEMBL tables likely contain this data?\n"
             "- What relationships between tables are needed?\n"
             "- What key columns are essential?\n\n"
-            "STEP 3: CONSIDER EDGE CASES\n"
-            "- Are there NULL values to handle?\n"
-            "- Are there multiple records per entity that need aggregation?\n"
-            "- Are there specific data quality concerns?\n\n"
             "OUTPUT: Provide a clear, detailed analysis in 2-4 sentences covering these aspects."
         )
         msg = [("system", system), ("user", prompt)]
@@ -536,7 +532,7 @@ class ChemblSqlPipeline:
             "- Write SELECT with specific columns (avoid SELECT *)\n"
             "- Add FROM clause with primary table\n"
             "- Add JOIN clauses with explicit ON conditions\n"
-            "- Add WHERE clause for filters\n"
+            "- Add WHERE clause for filters based on what the user asked, do not add extra unnecessary conditions unless requested\n"
             "- Add GROUP BY and aggregate functions if needed\n"
             "- Do not include LIMIT clauses\n"
             "- Verify all columns and tables match the schema exactly\n\n"
@@ -544,11 +540,6 @@ class ChemblSqlPipeline:
             "- Output ONLY the final SQL query - no explanations, no markdown, no steps shown\n"
             "- If related tables are '(none)', output exactly: Sorry, I am unable to answer this.\n"
             "- Use ONLY table and column names from the related tables provided\n\n"
-            "=== EXAMPLE ===\n"
-            "SELECT m.chembl_id, m.pref_name, a.standard_value\n"
-            "FROM molecule_dictionary m\n"
-            "JOIN activities a ON m.molregno = a.molregno\n"
-            "WHERE a.standard_type = 'IC50"
         )
         if edit_mode:
             system += (
