@@ -854,47 +854,58 @@ function downloadSql() {
 }
 
 async function downloadCsv() {
-  if (!columns.value.length || !sql.value || !memoryId.value) return
-  
+  if (!columns.value.length || !sql.value || !memoryId.value) {
+    console.warn('Download CSV: Missing required data', {
+      hasCols: columns.value.length > 0,
+      hasSql: !!sql.value,
+      hasMemId: !!memoryId.value,
+    })
+    return
+  }
+
   downloadingCsv.value = true
   try {
-    // Fetch all data without limit (use -1 to indicate no limit)
+    console.log('Starting CSV download with memory_id:', memoryId.value, 'limit: -1')
     const res = await http.post('/api/chembl-agent/reexecute', { 
       memory_id: memoryId.value, 
-      limit: -1, // -1 means no limit - fetch all data
+      limit: -1, // -1 means no limit
       api_key: apiKeyStore.apiKey 
     })
-    
-    const allColumns = res.data.columns || []
-    const allRows = res.data.rows || []
-    
-    const esc = (v: any) => {
-      if (v === null || v === undefined) return ''
-      const s = String(v)
-      // Escape quotes by doubling them and wrap if needed
-      const needsWrap = /[",\n]/.test(s)
-      const inner = s.replace(/"/g, '""')
-      return needsWrap ? `"${inner}"` : inner
+    console.log('CSV download response received:', { status: res.status, data: res.data })
+
+    const csvColumns = res.data.columns || []
+    const csvRows = res.data.rows || []
+
+    if (!csvColumns.length || !csvRows.length) {
+      console.warn('CSV download: No data in response to generate CSV.')
+      notify.show('No data available to download.', 'warning')
+      return
     }
-    
-    // Build CSV with all data
-    const lines = [allColumns.map(esc).join(',')]
-    for (const row of allRows) {
-      lines.push((row || []).map(esc).join(','))
-    }
-    const csv = lines.join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    const ts = new Date()
-    const pad = (n: number) => String(n).padStart(2, '0')
-    const name = `ChEMBL_query_${ts.getFullYear()}-${pad(ts.getMonth()+1)}-${pad(ts.getDate())}_${pad(ts.getHours())}-${pad(ts.getMinutes())}-${pad(ts.getSeconds())}.csv`
-    a.download = name
-    a.click()
-    URL.revokeObjectURL(a.href)
+
+    // CSV generation logic
+    let csvContent = "data:text/csv;charset=utf-8," + csvColumns.join(",") + "\n"
+    csvRows.forEach((rowArray: any[]) => {
+      let row = rowArray.map(item => {
+        let str = String(item)
+        if (str.includes(',')) return `"${str}"`
+        return str
+      }).join(",")
+      csvContent += row + "\n"
+    })
+
+    console.log('CSV content generated. Creating download link.')
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement("a")
+    link.setAttribute("href", encodedUri)
+    link.setAttribute("download", "chembl_query_results.csv")
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    console.log('Download should be initiated.')
+
   } catch (e) {
     console.error('Error downloading CSV:', e)
-    // Error is centrally notified by HTTP interceptor
+    notify.show('Failed to download CSV data.', 'error')
   } finally {
     downloadingCsv.value = false
   }

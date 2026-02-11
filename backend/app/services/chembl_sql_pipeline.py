@@ -95,11 +95,8 @@ class ChemblSqlPipeline:
         return sql, structured
 
     def execute_only(self, sql: str, limit: int | None = 100) -> Tuple[List[str], List[List[Any]]]:
-        # -1 means no limit (for downloads); otherwise ensure we have a valid positive limit
+        # Handle None by defaulting to 100, but preserve -1 for unlimited downloads
         effective_limit = limit if limit is not None else 100
-        if effective_limit < 0:
-            # Allow negative limits (e.g., -1 for no limit)
-            return self._execute_sql(sql, effective_limit)
         return self._execute_sql(sql, effective_limit)
 
     def run_all(self, prompt: str, limit: int | None = 100) -> SqlState:

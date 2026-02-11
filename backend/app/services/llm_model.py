@@ -183,10 +183,8 @@ class LLMModel:
             raise HTTPException(status_code=400, detail="No SQL present for this session.")
         if not self.chembl_pipeline:
             self.chembl_pipeline = ChemblSqlPipeline(self.llm, self.vector_store_sql)
-        # -1 means no limit; otherwise use the provided limit or default to 100
-        # Handle None by converting to 100 (default), then check for -1
-        effective_limit = limit if limit is not None else 100
-        cols, rows = self.chembl_pipeline.execute_only(sql, effective_limit if effective_limit >= 0 else -1)
+        # -1 means no limit (unlimited download); pass through as-is
+        cols, rows = self.chembl_pipeline.execute_only(sql, limit)
         prev["columns"], prev["rows"] = cols, rows
         self.chembl_session_set(memory_id, prev)
         return cols, rows
