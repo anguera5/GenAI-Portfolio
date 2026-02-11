@@ -767,6 +767,7 @@ async function runAll() {
   related.value = []
   columns.value = []
   rows.value = []
+  limit.value = 100  // Reset limit to default for new queries
   // Start a fresh session for each new run
   memoryId.value = crypto.randomUUID()
   editInstruction.value = ''

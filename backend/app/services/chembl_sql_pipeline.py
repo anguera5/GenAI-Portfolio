@@ -745,15 +745,18 @@ class ChemblSqlPipeline:
         # If limit is -1, don't apply any limit (used for bulk downloads)
         if limit < 0:
             self._log_step("LIMIT.skip", reason="limit=-1")
-            return sql.strip().rstrip(";")
+            # Still remove any existing LIMIT clause for bulk downloads
+            s = sql.strip().rstrip(";")
+            # Remove any existing LIMIT clause
+            s = re.sub(r'\bLIMIT\s+\d+\s*$', '', s, flags=re.I)
+            return s
         
         s = sql.strip().rstrip(";")
-        scan_compact = re.sub(r"\s+", " ", self._strip_sql_comments(s))
-        if re.search(r"\blimit\b", scan_compact, flags=re.I):
-            self._log_step("LIMIT.detected")
-            return s
-        self._log_step("LIMIT.append", limit=int(limit))
-        return f"{s}\nLIMIT {int(limit)}"
+        # Remove any existing LIMIT clause first (we'll add our own)
+        s_no_limit = re.sub(r'\bLIMIT\s+\d+\s*$', '', s, flags=re.I)
+        
+        self._log_step("LIMIT.enforce", limit=int(limit))
+        return f"{s_no_limit}\nLIMIT {int(limit)}"
 
     def _execute_sql(self, sql: str, limit: int) -> Tuple[List[str], List[List[Any]]]:
         if not self._is_select_only(sql):
