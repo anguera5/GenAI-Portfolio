@@ -90,7 +90,7 @@ class ChemblSqlEditResponse(BaseModel):
 
 class ChemblSqlReexecuteRequest(BaseModel):
     memory_id: str = Field(..., min_length=1)
-    limit: int = Field(default=100, ge=1)
+    limit: int = Field(default=100, ge=-1)  # -1 means no limit (for downloads)
     api_key: str
 
 class ChemblSqlReexecuteResponse(BaseModel):

@@ -95,6 +95,9 @@ class ChemblSqlPipeline:
         return sql, structured
 
     def execute_only(self, sql: str, limit: int | None = 100) -> Tuple[List[str], List[List[Any]]]:
+        # -1 means no limit (for downloads); otherwise default to 100
+        if limit == -1:
+            return self._execute_sql(sql, -1)
         return self._execute_sql(sql, limit or 100)
 
     def run_all(self, prompt: str, limit: int | None = 100) -> SqlState:
@@ -737,6 +740,11 @@ class ChemblSqlPipeline:
         return no_line
 
     def _enforce_limit(self, sql: str, limit: int) -> str:
+        # If limit is -1, don't apply any limit (used for bulk downloads)
+        if limit < 0:
+            self._log_step("LIMIT.skip", reason="limit=-1")
+            return sql.strip().rstrip(";")
+        
         s = sql.strip().rstrip(";")
         scan_compact = re.sub(r"\s+", " ", self._strip_sql_comments(s))
         if re.search(r"\blimit\b", scan_compact, flags=re.I):
@@ -754,7 +762,8 @@ class ChemblSqlPipeline:
                 raise ValueError("Forbidden token detected in SQL.")
         if ";" in sql.strip().rstrip(";"):
             raise ValueError("Multiple statements are not allowed.")
-        final_sql = self._enforce_limit(sql, limit or 100)
+        # Handle -1 as no limit, otherwise apply the limit
+        final_sql = self._enforce_limit(sql, limit if limit == -1 else (limit or 100))
         self._log_step("EXEC.start", preview=self._preview(sql, 120))
         self._log_step("EXEC.final_sql", head=self._preview(final_sql, 160))
 

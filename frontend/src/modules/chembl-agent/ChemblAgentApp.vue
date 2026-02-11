@@ -179,7 +179,7 @@
       <div class="d-flex align-center">
         <div class="text-subtitle-2">Results ({{ filteredRows.length }} / {{ rows.length }} rows)</div>
         <v-spacer />
-        <v-btn size="small" variant="text" class="mr-2" @click="downloadCsv" :disabled="!columns.length || !filteredRows.length">Download CSV</v-btn>
+        <v-btn size="small" variant="text" class="mr-2" @click="downloadCsv" :disabled="!columns.length || !rows.length || downloadingCsv" :loading="downloadingCsv">{{ downloadingCsv ? 'Downloading...' : 'Download CSV' }}</v-btn>
         <v-btn size="small" variant="text" class="mr-2" @click="clearFilters" :disabled="!columnFilters.some(f=>f)">Clear filters</v-btn>
         <v-text-field v-model.number="limit" type="number" label="Limit" min="1" max="10000" density="compact" hide-details style="max-width: 120px" />
       </div>
@@ -354,6 +354,7 @@ const optimizedGuidelines = ref('')
 const memoryId = ref('')
 const editInstruction = ref('')
 const loadingEdit = ref(false)
+const downloadingCsv = ref(false)
 const showTechDetails = ref(false)
 const techPanels = ref<any>([0]) // expand SQL panel by default for visible container
 // Per-column filters (aligned with columns by index)
@@ -840,30 +841,51 @@ function downloadSql() {
   URL.revokeObjectURL(a.href)
 }
 
-function downloadCsv() {
-  if (!columns.value.length || !filteredRows.value.length) return
-  const esc = (v: any) => {
-    if (v === null || v === undefined) return ''
-    const s = String(v)
-    // Escape quotes by doubling them and wrap if needed
-    const needsWrap = /[",\n]/.test(s)
-    const inner = s.replace(/"/g, '""')
-    return needsWrap ? `"${inner}"` : inner
+async function downloadCsv() {
+  if (!columns.value.length || !sql.value || !memoryId.value) return
+  
+  downloadingCsv.value = true
+  try {
+    // Fetch all data without limit (use -1 to indicate no limit)
+    const res = await http.post('/api/chembl-agent/reexecute', { 
+      memory_id: memoryId.value, 
+      limit: -1, // -1 means no limit - fetch all data
+      api_key: apiKeyStore.apiKey 
+    })
+    
+    const allColumns = res.data.columns || []
+    const allRows = res.data.rows || []
+    
+    const esc = (v: any) => {
+      if (v === null || v === undefined) return ''
+      const s = String(v)
+      // Escape quotes by doubling them and wrap if needed
+      const needsWrap = /[",\n]/.test(s)
+      const inner = s.replace(/"/g, '""')
+      return needsWrap ? `"${inner}"` : inner
+    }
+    
+    // Build CSV with all data
+    const lines = [allColumns.map(esc).join(',')]
+    for (const row of allRows) {
+      lines.push((row || []).map(esc).join(','))
+    }
+    const csv = lines.join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    const ts = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const name = `ChEMBL_query_${ts.getFullYear()}-${pad(ts.getMonth()+1)}-${pad(ts.getDate())}_${pad(ts.getHours())}-${pad(ts.getMinutes())}-${pad(ts.getSeconds())}.csv`
+    a.download = name
+    a.click()
+    URL.revokeObjectURL(a.href)
+  } catch (e) {
+    console.error('Error downloading CSV:', e)
+    // Error is centrally notified by HTTP interceptor
+  } finally {
+    downloadingCsv.value = false
   }
-  const lines = [columns.value.map(esc).join(',')]
-  for (const row of filteredRows.value) {
-    lines.push((row || []).map(esc).join(','))
-  }
-  const csv = lines.join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  const ts = new Date()
-  const pad = (n: number) => String(n).padStart(2, '0')
-  const name = `ChEMBL_query_${ts.getFullYear()}-${pad(ts.getMonth()+1)}-${pad(ts.getDate())}_${pad(ts.getHours())}-${pad(ts.getMinutes())}-${pad(ts.getSeconds())}.csv`
-  a.download = name
-  a.click()
-  URL.revokeObjectURL(a.href)
 }
 
 function copySchema(t: TableCard) {

@@ -183,7 +183,8 @@ class LLMModel:
             raise HTTPException(status_code=400, detail="No SQL present for this session.")
         if not self.chembl_pipeline:
             self.chembl_pipeline = ChemblSqlPipeline(self.llm, self.vector_store_sql)
-        cols, rows = self.chembl_pipeline.execute_only(sql, limit or 100)
+        # -1 means no limit; otherwise use the provided limit or default to 100
+        cols, rows = self.chembl_pipeline.execute_only(sql, limit if limit >= 0 else -1)
         prev["columns"], prev["rows"] = cols, rows
         self.chembl_session_set(memory_id, prev)
         return cols, rows
