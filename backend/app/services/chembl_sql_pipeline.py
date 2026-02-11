@@ -470,7 +470,8 @@ class ChemblSqlPipeline:
             "- Which ChEMBL tables likely contain this data?\n"
             "- What relationships between tables are needed?\n"
             "- What key columns are essential?\n\n"
-            "OUTPUT: Provide a clear, detailed analysis in 2-4 sentences covering these aspects."
+            "OUTPUT: Provide a clear, detailed analysis in 2-4 sentences covering these aspects. Do not use any SQL language, just expand whatever concepts are needed and which" \
+            "information would be necessary, as your answer will be used to retrieve relevant tables."
         )
         msg = [("system", system), ("user", prompt)]
         self._log_step("PLAN.start", prompt_len=len(prompt))
