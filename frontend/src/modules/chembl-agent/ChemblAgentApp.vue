@@ -181,7 +181,7 @@
         <v-spacer />
         <v-btn size="small" variant="text" class="mr-2" @click="downloadCsv" :disabled="!columns.length || !rows.length || downloadingCsv" :loading="downloadingCsv">{{ downloadingCsv ? 'Downloading...' : 'Download CSV' }}</v-btn>
         <v-btn size="small" variant="text" class="mr-2" @click="clearFilters" :disabled="!columnFilters.some(f=>f)">Clear filters</v-btn>
-        <v-text-field v-model.number="limit" type="number" label="Limit" min="1" max="10000" density="compact" hide-details style="max-width: 120px" />
+        <v-text-field v-model.number="limit" type="number" label="Limit" min="1" max="10000" density="compact" hide-details :loading="reexecutingLimit" @blur="applyNewLimit" style="max-width: 120px" />
       </div>
       <v-divider class="my-2" />
       <div class="table-wrapper">
@@ -355,6 +355,7 @@ const memoryId = ref('')
 const editInstruction = ref('')
 const loadingEdit = ref(false)
 const downloadingCsv = ref(false)
+const reexecutingLimit = ref(false)
 const showTechDetails = ref(false)
 const techPanels = ref<any>([0]) // expand SQL panel by default for visible container
 // Per-column filters (aligned with columns by index)
@@ -514,21 +515,31 @@ function clearFilters() {
   columnFilters.value = new Array(columns.value.length).fill('')
 }
 
-// Debounced re-execution when limit changes
-let limitTimer: any = null
-watch(limit, (val) => {
+// Apply new limit only when user leaves the input field (blur event)
+async function applyNewLimit() {
   if (!memoryId.value || !sql.value) return
-  if (limitTimer) clearTimeout(limitTimer)
-  limitTimer = setTimeout(async () => {
-    try {
-  const res = await http.post('/api/chembl-agent/reexecute', { memory_id: memoryId.value, limit: Number(val) || 100, api_key: apiKeyStore.apiKey })
-      columns.value = res.data.columns || []
-      rows.value = res.data.rows || []
-    } catch (e) {
-      // no-op; errors are centrally notified
-    }
-  }, 400)
-})
+  
+  const newLimit = Number(limit.value) || 100
+  if (newLimit < 1) {
+    limit.value = 100
+    return
+  }
+  if (newLimit > 10000) {
+    limit.value = 10000
+    return
+  }
+  
+  reexecutingLimit.value = true
+  try {
+    const res = await http.post('/api/chembl-agent/reexecute', { memory_id: memoryId.value, limit: newLimit, api_key: apiKeyStore.apiKey })
+    columns.value = res.data.columns || []
+    rows.value = res.data.rows || []
+  } catch (e) {
+    // no-op; errors are centrally notified
+  } finally {
+    reexecutingLimit.value = false
+  }
+}
 
 function onKeyDown(e: KeyboardEvent) {
   if (e.key === 'Enter' && !e.shiftKey) {
