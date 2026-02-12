@@ -5,8 +5,12 @@ import json
 import re
 import time
 import sqlite3
+import csv
+import io
 from typing import Any, List, Tuple, TypedDict
 import uuid
+
+from collections.abc import Iterator
 
 from langgraph.graph import StateGraph, END
 import logging
@@ -98,6 +102,60 @@ class ChemblSqlPipeline:
         # Handle None by defaulting to 100, but preserve -1 for unlimited downloads
         effective_limit = limit if limit is not None else 100
         return self._execute_sql(sql, effective_limit)
+
+    def stream_csv(self, sql: str, limit: int | None = -1, chunk_rows: int = 2000) -> Iterator[bytes]:
+        """Execute SQL and stream results as CSV.
+
+        This is the preferred path for downloads since it avoids holding the full
+        dataset in memory. Use `limit=-1` to remove any LIMIT clause and apply none.
+        """
+        if not self._is_select_only(sql):
+            raise ValueError("Only SELECT/WITH queries are allowed.")
+        lower = sql.lower()
+        for tok in FORBIDDEN_TOKENS:
+            if tok in lower and tok != ";":
+                raise ValueError("Forbidden token detected in SQL.")
+        if ";" in sql.strip().rstrip(";"):
+            raise ValueError("Multiple statements are not allowed.")
+
+        effective_limit = limit if limit is not None else 100
+        final_sql = self._enforce_limit(sql, effective_limit if isinstance(effective_limit, int) else 100)
+
+        self._log_step("DL.start", preview=self._preview(sql, 120), limit=effective_limit, chunk_rows=int(chunk_rows))
+        self._log_step("DL.final_sql", head=self._preview(final_sql, 160))
+
+        conn = sqlite3.connect(READ_ONLY_URI, uri=True)
+        try:
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            try:
+                cur.execute(final_sql)
+            except sqlite3.Error as e:
+                self._log_step("DL.error", message=str(e))
+                raise ValueError(f"SQLite error: {e}") from e
+
+            columns = [d[0] for d in cur.description] if cur.description else []
+
+            # Header
+            header_buf = io.StringIO()
+            csv.writer(header_buf, lineterminator="\n").writerow(columns)
+            yield header_buf.getvalue().encode("utf-8", errors="replace")
+
+            # Rows (chunked)
+            fetch_size = max(1, int(chunk_rows))
+            while True:
+                batch = cur.fetchmany(fetch_size)
+                if not batch:
+                    break
+                buf = io.StringIO()
+                w = csv.writer(buf, lineterminator="\n")
+                for r in batch:
+                    w.writerow(list(r))
+                yield buf.getvalue().encode("utf-8", errors="replace")
+
+            self._log_step("DL.done")
+        finally:
+            conn.close()
 
     def run_all(self, prompt: str, limit: int | None = 100) -> SqlState:
         """Run the full graph and return final state with sql, structured tables, and results.

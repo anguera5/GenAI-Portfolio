@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from app.models.schemas import (
     GenerateRequest,
     GenerateResponse,
@@ -12,6 +13,7 @@ from app.models.schemas import (
     ChemblSqlEditResponse,
     ChemblSqlReexecuteRequest,
     ChemblSqlReexecuteResponse,
+    ChemblSqlDownloadRequest,
     CodeReviewByUrlRequest,
 )
 from app.services.llm_model import LLMModel
@@ -219,3 +221,31 @@ async def chembl_reexecute(payload: ChemblSqlReexecuteRequest):
         raise HTTPException(status_code=400, detail="No SQL present for this session.")
     cols, rows = llm.chembl_reexecute(payload.memory_id, payload.limit, payload.api_key)
     return ChemblSqlReexecuteResponse(columns=cols, rows=rows)
+
+
+@router.post("/chembl-agent/download")
+async def chembl_download(payload: ChemblSqlDownloadRequest):
+    """Download full results by re-executing session SQL without LIMIT.
+
+    Uses a streaming CSV response to avoid large in-memory payloads.
+    """
+    llm.check_model_running(payload.api_key)
+    prev = llm.chembl_session_get(payload.memory_id)
+    if not prev:
+        raise HTTPException(status_code=400, detail="Unknown memory_id; run a query first.")
+    sql = (prev.get("sql") or "").strip()
+    if not sql:
+        raise HTTPException(status_code=400, detail="No SQL present for this session.")
+
+    # Ensure pipeline exists
+    if not llm.chembl_pipeline:
+        from app.services.chembl_sql_pipeline import ChemblSqlPipeline
+        llm.chembl_pipeline = ChemblSqlPipeline(llm.llm, llm.vector_store_sql)
+
+    def _iter_bytes():
+        # limit=-1: remove any existing LIMIT and apply none
+        yield from llm.chembl_pipeline.stream_csv(sql, limit=-1, chunk_rows=2000)
+
+    filename = f"chembl_query_{payload.memory_id}_full.csv"
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    return StreamingResponse(_iter_bytes(), media_type="text/csv; charset=utf-8", headers=headers)

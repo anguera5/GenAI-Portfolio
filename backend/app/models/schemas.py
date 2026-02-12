@@ -97,3 +97,8 @@ class ChemblSqlReexecuteResponse(BaseModel):
     columns: list[str]
     rows: list[list]
 
+
+class ChemblSqlDownloadRequest(BaseModel):
+    memory_id: str = Field(..., min_length=1)
+    api_key: str
+

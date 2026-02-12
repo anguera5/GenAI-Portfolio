@@ -179,7 +179,7 @@
       <div class="d-flex align-center">
         <div class="text-subtitle-2">Results ({{ filteredRows.length }} / {{ rows.length }} rows)</div>
         <v-spacer />
-        <v-btn size="small" variant="text" class="mr-2" @click="downloadCsv" :disabled="!columns.length || !rows.length || downloadingCsv" :loading="downloadingCsv">{{ downloadingCsv ? 'Downloading...' : 'Download CSV' }}</v-btn>
+        <v-btn size="small" variant="text" class="mr-2" @click="downloadCsv" :disabled="!sql || !memoryId || downloadingCsv" :loading="downloadingCsv">{{ downloadingCsv ? 'Downloading...' : 'Download CSV' }}</v-btn>
         <v-btn size="small" variant="text" class="mr-2" @click="clearFilters" :disabled="!columnFilters.some(f=>f)">Clear filters</v-btn>
         <v-text-field v-model.number="limit" type="number" label="Limit" min="1" max="10000" density="compact" hide-details :loading="reexecutingLimit" @blur="applyNewLimit" style="max-width: 120px" />
       </div>
@@ -854,58 +854,39 @@ function downloadSql() {
 }
 
 async function downloadCsv() {
-  if (!columns.value.length || !sql.value || !memoryId.value) {
-    console.warn('Download CSV: Missing required data', {
-      hasCols: columns.value.length > 0,
-      hasSql: !!sql.value,
-      hasMemId: !!memoryId.value,
-    })
+  if (!memoryId.value || !sql.value) {
+    notify.show('Run a query first.', 'warning')
     return
   }
 
+  const ok = window.confirm(
+    'This will re-run the SQL query without any LIMIT to download the full dataset. This may take a long time. Continue?'
+  )
+  if (!ok) return
+
   downloadingCsv.value = true
   try {
-    console.log('Starting CSV download with memory_id:', memoryId.value, 'limit: -1')
-    const res = await http.post('/api/chembl-agent/reexecute', { 
-      memory_id: memoryId.value, 
-      limit: -1, // -1 means no limit
-      api_key: apiKeyStore.apiKey 
-    })
-    console.log('CSV download response received:', { status: res.status, data: res.data })
+    const res = await http.post(
+      '/api/chembl-agent/download',
+      { memory_id: memoryId.value, api_key: apiKeyStore.apiKey },
+      { responseType: 'blob', timeout: 0 }
+    )
 
-    const csvColumns = res.data.columns || []
-    const csvRows = res.data.rows || []
+    const blob = (res.data instanceof Blob)
+      ? res.data
+      : new Blob([res.data], { type: 'text/csv;charset=utf-8' })
 
-    if (!csvColumns.length || !csvRows.length) {
-      console.warn('CSV download: No data in response to generate CSV.')
-      notify.show('No data available to download.', 'warning')
-      return
-    }
-
-    // CSV generation logic
-    let csvContent = "data:text/csv;charset=utf-8," + csvColumns.join(",") + "\n"
-    csvRows.forEach((rowArray: any[]) => {
-      let row = rowArray.map(item => {
-        let str = String(item)
-        if (str.includes(',')) return `"${str}"`
-        return str
-      }).join(",")
-      csvContent += row + "\n"
-    })
-
-    console.log('CSV content generated. Creating download link.')
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement("a")
-    link.setAttribute("href", encodedUri)
-    link.setAttribute("download", "chembl_query_results.csv")
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    console.log('Download should be initiated.')
-
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `chembl_query_${memoryId.value}_full.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   } catch (e) {
-    console.error('Error downloading CSV:', e)
-    notify.show('Failed to download CSV data.', 'error')
+    console.error('Error downloading full CSV:', e)
+    // Error toast is typically handled by the global axios interceptor
   } finally {
     downloadingCsv.value = false
   }
