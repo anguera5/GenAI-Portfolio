@@ -66,6 +66,7 @@ class LLMModel:
                 self.llm = temp_llm
                 self.embeddings = OpenAIEmbeddings(model=_settings.openai_embedding_model, api_key=incoming_key)
                 self.vector_store_website = Chroma(
+                    collection_name="fpfChabotDbs",
                     embedding_function=self.embeddings,
                     persist_directory="app/chroma_db",
                 )
